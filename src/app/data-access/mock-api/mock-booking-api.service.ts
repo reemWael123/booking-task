@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { defer, Observable, of, Subject, throwError, timer } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
 import {
@@ -44,7 +44,8 @@ export class MockBookingApiService {
   private sequence = 0;
   private nextBookingCounter = 1;
   private nextEventCounter = 1;
-  private config: MockSimulationConfig = { ...DEFAULT_SIMULATION_CONFIG };
+  private readonly configSignal = signal<MockSimulationConfig>({ ...DEFAULT_SIMULATION_CONFIG });
+  readonly simulationConfig = this.configSignal.asReadonly();
 
   private readonly liveEventsSubject = new Subject<BookingLiveEvent>();
   readonly liveEvents$: Observable<BookingLiveEvent> = this.liveEventsSubject.asObservable();
@@ -73,11 +74,11 @@ export class MockBookingApiService {
   }
 
   configureSimulation(partial: Partial<MockSimulationConfig>): void {
-    this.config = { ...this.config, ...partial };
+    this.configSignal.update((current) => ({ ...current, ...partial }));
   }
 
   getSimulationConfig(): MockSimulationConfig {
-    return { ...this.config };
+    return { ...this.configSignal() };
   }
 
   getCurrentSequence(): number {
@@ -124,8 +125,8 @@ export class MockBookingApiService {
       const now = this.clock.now();
 
       // Reproducible 409 race simulation even when the slot initially appeared available.
-      if (this.config.forceNextConflict) {
-        this.config = { ...this.config, forceNextConflict: false };
+      if (this.configSignal().forceNextConflict) {
+        this.configureSimulation({ forceNextConflict: false });
         const competitorBooking = this.commitCompetitorBooking(req);
         const alternatives = suggestSlots(req, [...this.rooms], this.getAllBookingsSync(), now, 3);
         throw new ApiError(409, 'CONFLICT', `Room was just booked by ${competitorBooking.userName}.`, {
@@ -185,8 +186,8 @@ export class MockBookingApiService {
 
       const now = this.clock.now();
 
-      if (this.config.forceNextConflict) {
-        this.config = { ...this.config, forceNextConflict: false };
+      if (this.configSignal().forceNextConflict) {
+        this.configureSimulation({ forceNextConflict: false });
         const competitorBooking = this.commitCompetitorBooking(req);
         const alternatives = suggestSlots(req, [...this.rooms], this.getAllBookingsSync(), now, 3);
         throw new ApiError(409, 'CONFLICT', `Recurring slot conflict with ${competitorBooking.userName}.`, {
@@ -292,6 +293,18 @@ export class MockBookingApiService {
         excludeBookingId: existing.id
       };
 
+      // Allow Simulate Next 409 Race to also reproduce a slot-snatched conflict during Undo restore.
+      if (this.configSignal().forceNextConflict) {
+        this.configureSimulation({ forceNextConflict: false });
+        const competitorBooking = this.commitCompetitorBooking(req);
+        const alternatives = suggestSlots(req, [...this.rooms], this.getAllBookingsSync(), now, 3);
+        throw new ApiError(409, 'CONFLICT', 'Slot was taken before undo could restore it.', {
+          message: `Cannot restore: ${competitorBooking.userName} reserved this slot.`,
+          conflictingBooking: competitorBooking,
+          alternatives
+        });
+      }
+
       const validation = validateBooking(req, room, dayBookings, userDayBookings, now);
       if (!validation.valid) {
         if (validation.conflicts.length > 0) {
@@ -383,7 +396,7 @@ export class MockBookingApiService {
       roomId: req.roomId,
       title: 'Urgent Client Escalation',
       userId: 'user-karim',
-      userName: this.config.conflictCompetitorName,
+      userName: this.configSignal().conflictCompetitorName,
       startIso: req.startIso,
       endIso: req.endIso,
       attendees: req.attendees,
@@ -396,8 +409,8 @@ export class MockBookingApiService {
   }
 
   private throwIfServerErrorArmed(): void {
-    if (this.config.forceNextServerError) {
-      this.config = { ...this.config, forceNextServerError: false };
+    if (this.configSignal().forceNextServerError) {
+      this.configureSimulation({ forceNextServerError: false });
       throw new ApiError(500, 'SERVER_ERROR', 'Simulated server error. Please try again.');
     }
   }
@@ -457,7 +470,7 @@ export class MockBookingApiService {
 
   private withNetworkDelay<T>(producer: () => T): Observable<T> {
     return defer(() => {
-      const delayMs = this.config.delayMs;
+      const delayMs = this.configSignal().delayMs;
       const run = (): Observable<T> => {
         try {
           return of(producer());

@@ -37,8 +37,8 @@ export class TimelinePageComponent {
 
   readonly drawerOpen = signal<boolean>(false);
   readonly drawerSelection = signal<DrawerSlotSelection | null>(null);
-  readonly conflictRaceArmed = signal<boolean>(false);
-  readonly serverErrorArmed = signal<boolean>(false);
+  readonly conflictRaceArmed = computed(() => this.mockApi.simulationConfig().forceNextConflict);
+  readonly serverErrorArmed = computed(() => this.mockApi.simulationConfig().forceNextServerError);
 
   readonly floors = computed<readonly number[]>(() => {
     const unique = new Set<number>();
@@ -98,22 +98,14 @@ export class TimelinePageComponent {
 
   onDrawerClosed(): void {
     this.drawerOpen.set(false);
-    // Sync simulation button indicators in case a one-shot simulation fired
-    const cfg = this.mockApi.getSimulationConfig();
-    this.conflictRaceArmed.set(cfg.forceNextConflict);
-    this.serverErrorArmed.set(cfg.forceNextServerError);
   }
 
   onToggleConflictRace(): void {
-    const next = !this.conflictRaceArmed();
-    this.conflictRaceArmed.set(next);
-    this.mockApi.configureSimulation({ forceNextConflict: next });
+    this.mockApi.configureSimulation({ forceNextConflict: !this.conflictRaceArmed() });
   }
 
   onToggleServerError(): void {
-    const next = !this.serverErrorArmed();
-    this.serverErrorArmed.set(next);
-    this.mockApi.configureSimulation({ forceNextServerError: next });
+    this.mockApi.configureSimulation({ forceNextServerError: !this.serverErrorArmed() });
   }
 
   onSimulateLiveBurst(): void {

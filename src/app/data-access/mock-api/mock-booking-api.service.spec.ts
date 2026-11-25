@@ -266,4 +266,37 @@ describe('MockBookingApiService', () => {
 
     expect(restoreError?.status).toBe(409);
   });
+
+  it('reproduces a 409 Conflict race during restoreBooking when forceNextConflict is armed', () => {
+    api.resetData('2026-11-25', 4, 1);
+    const slot = findOpenSlot('2026-11-25');
+
+    let bookingId = '';
+    api
+      .createBooking({
+        roomId: slot.roomId,
+        title: 'Undo Race Target',
+        userId: 'user-nadia',
+        userName: 'Nadia Hassan',
+        startIso: slot.startIso,
+        endIso: slot.endIso,
+        attendees: 2,
+        requiredEquipment: []
+      })
+      .subscribe((res) => (bookingId = res.data.id));
+
+    api.cancelBooking(bookingId).subscribe();
+    api.configureSimulation({ forceNextConflict: true, conflictCompetitorName: 'Karim Mansour' });
+
+    let restoreError: ApiError | undefined;
+    api.restoreBooking(bookingId).subscribe({
+      next: () => fail('Expected 409 conflict on armed restoreBooking'),
+      error: (err: ApiError) => (restoreError = err)
+    });
+
+    expect(restoreError?.status).toBe(409);
+    expect(restoreError?.conflict?.conflictingBooking.userName).toBe('Karim Mansour');
+    expect(restoreError?.conflict?.alternatives.length).toBe(3);
+    expect(api.getSimulationConfig().forceNextConflict).toBeFalse();
+  });
 });

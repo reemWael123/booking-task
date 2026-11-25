@@ -31,6 +31,18 @@
       <div class="user-card">
         <div class="user-card__name">{{ store.currentUser().name }}</div>
         <div class="user-card__dept">{{ store.currentUser().department }}</div>
+        <label class="user-switch" for="demo-user-switch">
+          <span>Switch User (Demo)</span>
+          <select
+            id="demo-user-switch"
+            class="user-switch__select"
+            [value]="store.currentUser().id"
+            (change)="onSwitchUser($event)">
+            @for (user of userContext.availableUsers; track user.id) {
+              <option [value]="user.id">{{ user.name }}</option>
+            }
+          </select>
+        </label>
       </div>
     </div>
   </aside>
