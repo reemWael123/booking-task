@@ -20,7 +20,12 @@ import {
   ValidatedSuggestedSlot
 } from '../../../../core/models';
 import { BookingHubStore } from '../../../../data-access/store/booking-hub.store';
-import { formatCairoOffsetIso, formatTimeHHMM, resolveCairoDateKeyTime } from '../../../../domain';
+import {
+  addCairoDays,
+  formatCairoOffsetIso,
+  formatTimeHHMM,
+  resolveCairoDateKeyTime
+} from '../../../../domain';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 
 export interface DrawerSlotSelection {
@@ -206,9 +211,15 @@ export class BookingDrawerComponent {
       if (!this.open()) {
         return;
       }
-      const dateKey = this.formValue().dateKey;
-      if (dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-        this.store.loadDateBookings(dateKey).subscribe({ error: () => undefined });
+      const val = this.formValue();
+      const dateKey = val.dateKey;
+      if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+        return;
+      }
+      const totalWeeks = val.recurring ? Math.min(4, Math.max(1, Number(val.weeks ?? 2))) : 1;
+      for (let weekIndex = 0; weekIndex < totalWeeks; weekIndex++) {
+        const occDateKey = weekIndex === 0 ? dateKey : addCairoDays(dateKey, weekIndex * 7);
+        this.store.loadDateBookings(occDateKey).subscribe({ error: () => undefined });
       }
     });
   }

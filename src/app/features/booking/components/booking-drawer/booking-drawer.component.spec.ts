@@ -85,4 +85,57 @@ describe('BookingDrawerComponent', () => {
     expect(closedSpy).toHaveBeenCalled();
     expect(store.selectedDateBookings().some((b) => b.title === 'Drawer Booking')).toBeTrue();
   });
+
+  it('preloads future recurring weeks and displays the exact failed week when an occurrence conflicts', () => {
+    const rooms = store.rooms();
+    // Place an existing conflict on the server for Week 3 (2026-12-09) without visiting that date on timeline
+    mockApi
+      .createBooking({
+        roomId: rooms[0].id,
+        title: 'Week 3 Blocker',
+        userId: 'user-omar',
+        userName: 'Omar Tarek',
+        startIso: '2026-12-09T08:00:00+02:00',
+        endIso: '2026-12-09T08:15:00+02:00',
+        attendees: 2,
+        requiredEquipment: []
+      })
+      .subscribe();
+
+    const fixture = TestBed.createComponent(BookingDrawerComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('rooms', rooms);
+    fixture.componentRef.setInput('selection', {
+      roomId: rooms[0].id,
+      dateKey: '2026-11-25',
+      startTime: '08:00',
+      endTime: '08:15'
+    });
+    fixture.detectChanges();
+
+    const comp = fixture.componentInstance;
+    comp.form.patchValue({
+      title: 'Weekly Team Sync',
+      attendees: 2,
+      recurring: true,
+      weeks: 4
+    });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const rows = Array.from(el.querySelectorAll('.occurrence-item'));
+    expect(rows.length).toBe(4);
+    expect(rows[0].textContent).toContain('Week 1 · 2026-11-25');
+    expect(rows[0].textContent).toContain('Available');
+    expect(rows[1].textContent).toContain('Week 2 · 2026-12-02');
+    expect(rows[1].textContent).toContain('Available');
+    expect(rows[2].textContent).toContain('Week 3 · 2026-12-09');
+    expect(rows[2].textContent).toContain('Conflict / Invalid');
+    expect(rows[3].textContent).toContain('Week 4 · 2026-12-16');
+    expect(rows[3].textContent).toContain('Available');
+
+    // Validation panel explicitly identifies Week 3 (2026-12-09) and blocks submit (all-or-nothing)
+    expect(el.textContent).toContain('Week 3 (2026-12-09)');
+    expect(comp.canSubmit()).toBeFalse();
+  });
 });
