@@ -45,10 +45,6 @@
     color: var(--color-text-muted);
     padding: 4px 8px;
     border-radius: var(--radius-sm);
-
-    &:hover {
-      background: var(--color-surface-subtle);
-    }
   }
 
   &__form {
@@ -126,10 +122,6 @@
   font-size: 12px;
   cursor: pointer;
 
-  input {
-    margin: 0;
-  }
-
   &--active {
     background: var(--color-primary-soft);
     border-color: var(--color-primary);
@@ -179,13 +171,17 @@
   border: 1px solid var(--color-border);
 }
 
-.validation-panel {
-  padding: var(--space-3) var(--space-4);
+.validation-panel,
+.valid-banner {
+  padding: var(--space-3);
   border-radius: var(--radius-md);
+  font-size: 12px;
+}
+
+.validation-panel {
   background: var(--color-danger-soft);
   border: 1px solid var(--color-danger-border);
   color: var(--color-danger);
-  font-size: 12px;
 
   &__title {
     font-weight: 700;
@@ -199,35 +195,28 @@
 }
 
 .valid-banner {
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
   background: var(--color-success-soft);
   border: 1px solid var(--color-success-border);
   color: var(--color-success);
+}
+
+.suggestions__title {
+  margin: 0 0 var(--space-2);
   font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
 }
 
-.suggestions {
-  &__title {
-    margin: 0 0 var(--space-2);
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-  }
+.suggestion-item__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.suggestion-item {
-  &__info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  &__blocked {
-    color: var(--color-danger);
-    font-size: 11px;
-  }
+.suggestion-item__blocked {
+  color: var(--color-danger);
+  font-size: 11px;
 }
 
 .btn-primary,
@@ -244,10 +233,6 @@
   border: none;
   background: var(--color-primary);
   color: #ffffff;
-
-  &:hover:not(:disabled) {
-    background: var(--color-primary-hover);
-  }
 
   &:disabled {
     background: var(--color-border-strong);
