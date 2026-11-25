@@ -1,4 +1,5 @@
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { ApiError, Booking, BookingLiveEvent, BookingRequest } from '../../core/models';
 import { ClockService } from '../../core/services/clock.service';
 import { DEFAULT_CURRENT_USER } from '../../core/services/user-context.service';
@@ -399,5 +400,192 @@ describe('BookingHubStore', () => {
     clock.advanceMs(5000);
     tick(5000);
     expect(resyncSpy).toHaveBeenCalledWith('2026-11-25');
+  }));
+
+  it('rolls back optimistic restore on Undo 409 conflict when another user books the slot during the 10s window', fakeAsync(() => {
+    const req = makeOpenRequest({ title: 'Undo Conflict Target' });
+    let created: Booking | undefined;
+    store.createBooking(req).subscribe((b) => (created = b));
+    expect(created).toBeDefined();
+
+    // Cancel booking -> starts 10-second Undo window
+    store.cancelBooking(created!.id).subscribe();
+    expect(store.mergedBookingsById().get(created!.id)?.status).toBe('cancelled');
+    expect(store.undoAction()?.bookingId).toBe(created!.id);
+
+    // 2 seconds later, another user books the exact same slot on the server
+    tick(2000);
+    clock.advanceMs(2000);
+    let competitorBooking: Booking | undefined;
+    mockApi
+      .createBooking({
+        ...req,
+        title: 'Competitor Urgent Sync',
+        userId: 'user-omar',
+        userName: 'Omar Tarek'
+      })
+      .subscribe((res) => (competitorBooking = res.data));
+    expect(competitorBooking).toBeDefined();
+
+    // Attempt Undo with simulated latency so we can verify optimistic restore + rollback
+    mockApi.configureSimulation({ delayMs: 120 });
+    let undoError: ApiError | undefined;
+    store.undoLastCancellation().subscribe({
+      next: () => fail('Expected 409 conflict when restoring taken slot'),
+      error: (err: ApiError) => (undoError = err)
+    });
+
+    // While in flight, booking is optimistically restored
+    expect(store.mergedBookingsById().get(created!.id)?.status).toBe('confirmed');
+    expect(store.mergedBookingsById().get(created!.id)?.optimistic).toBeTrue();
+
+    tick(120);
+
+    // 409 Conflict returned and optimistic restore is cleanly rolled back
+    expect(undoError?.status).toBe(409);
+    expect(store.mergedBookingsById().get(created!.id)?.status).toBe('cancelled');
+    expect(store.mergedBookingsById().get(created!.id)?.optimistic).toBeFalse();
+
+    // Conflict state exposes the competing booking and 3 alternative slots
+    const conflict = store.activeConflict();
+    expect(conflict).not.toBeNull();
+    expect(conflict?.conflictingBooking.id).toBe(competitorBooking!.id);
+    expect(conflict?.conflictingBooking.userName).toBe('Omar Tarek');
+    expect(conflict?.alternatives.length).toBe(3);
+
+    // No duplicate active booking exists for that slot and no optimistic entries remain
+    const activeForSlot = store
+      .selectedDateBookings()
+      .filter((b) => b.roomId === req.roomId && b.startIso === req.startIso && b.status === 'confirmed');
+    expect(activeForSlot.length).toBe(1);
+    expect(activeForSlot[0].id).toBe(competitorBooking!.id);
+    expect(store.selectedDateBookings().some((b) => b.optimistic === true)).toBeFalse();
+  }));
+
+  it('recovers end-to-end from a sequence gap using a higher-sequence snapshot, clearing the gap and draining newer buffered events', fakeAsync(() => {
+    const firstRoom = store.rooms()[0];
+    const secondRoom = store.rooms()[1];
+    const baseSeq = mockApi.getCurrentSequence();
+
+    // Seed a booking at baseSeq + 1 that will later be absent from the authoritative snapshot (stale)
+    const staleBooking: Booking = {
+      id: 'bk-stale-day',
+      roomId: firstRoom.id,
+      title: 'Stale Booking',
+      userId: 'user-omar',
+      userName: 'Omar Tarek',
+      startIso: '2026-11-25T14:00:00+02:00',
+      endIso: '2026-11-25T14:30:00+02:00',
+      attendees: 2,
+      requiredEquipment: [],
+      status: 'confirmed'
+    };
+    mockApi.emitRawLiveEvent({
+      eventId: 'evt-e2e-1',
+      sequence: baseSeq + 1,
+      type: 'BOOKING_CREATED',
+      booking: staleBooking,
+      emittedAtIso: clock.now().toISOString()
+    });
+    expect(store.mergedBookingsById().has('bk-stale-day')).toBeTrue();
+    expect(store.liveStreamStatus().lastAppliedSequence).toBe(baseSeq + 1);
+
+    // Sequence baseSeq + 2 is missed; future events baseSeq + 3 and baseSeq + 4 arrive out of order
+    const seq3Booking: Booking = {
+      id: 'bk-e2e-seq3',
+      roomId: firstRoom.id,
+      title: 'Snapshot Included Seq 3',
+      userId: 'user-omar',
+      userName: 'Omar Tarek',
+      startIso: '2026-11-25T15:00:00+02:00',
+      endIso: '2026-11-25T15:30:00+02:00',
+      attendees: 3,
+      requiredEquipment: [],
+      status: 'confirmed'
+    };
+    const seq4Booking: Booking = {
+      id: 'bk-e2e-seq4',
+      roomId: secondRoom.id,
+      title: 'Buffered Newer Seq 4',
+      userId: 'user-salma',
+      userName: 'Salma El-Sayed',
+      startIso: '2026-11-25T16:00:00+02:00',
+      endIso: '2026-11-25T16:30:00+02:00',
+      attendees: 3,
+      requiredEquipment: [],
+      status: 'confirmed'
+    };
+    const missedSeq2Booking: Booking = {
+      id: 'bk-e2e-missed-seq2',
+      roomId: secondRoom.id,
+      title: 'Recovered Missed Seq 2',
+      userId: 'user-karim',
+      userName: 'Karim Mansour',
+      startIso: '2026-11-25T13:00:00+02:00',
+      endIso: '2026-11-25T13:30:00+02:00',
+      attendees: 2,
+      requiredEquipment: [],
+      status: 'confirmed'
+    };
+
+    mockApi.emitRawLiveEvent({
+      eventId: 'evt-e2e-3',
+      sequence: baseSeq + 3,
+      type: 'BOOKING_CREATED',
+      booking: seq3Booking,
+      emittedAtIso: clock.now().toISOString()
+    });
+    mockApi.emitRawLiveEvent({
+      eventId: 'evt-e2e-4',
+      sequence: baseSeq + 4,
+      type: 'BOOKING_CREATED',
+      booking: seq4Booking,
+      emittedAtIso: clock.now().toISOString()
+    });
+
+    // Gap detected: waiting for baseSeq + 2, with 2 events buffered
+    expect(store.sequenceGap()).toEqual({
+      expectedSequence: baseSeq + 2,
+      lowestBufferedSequence: baseSeq + 3,
+      missingCount: 1
+    });
+    expect(store.liveStreamStatus().bufferedCount).toBe(2);
+
+    // Authoritative snapshot at sequence baseSeq + 3 includes missed seq 2 + seq 3, excludes stale booking
+    const snapshotSpy = spyOn(mockApi, 'getBookingsByDate').and.returnValue(
+      of({
+        status: 200,
+        data: {
+          dateKey: '2026-11-25',
+          bookings: [missedSeq2Booking, seq3Booking],
+          sequence: baseSeq + 3
+        },
+        timestampIso: clock.now().toISOString()
+      })
+    );
+
+    // Advance fake clock by 5 seconds -> store requests authoritative snapshot and reconciles
+    clock.advanceMs(5000);
+    tick(5000);
+
+    expect(snapshotSpy).toHaveBeenCalledOnceWith('2026-11-25');
+
+    // Gap is completely cleared and buffered seq 4 was drained automatically after snapshot seq 3
+    expect(store.sequenceGap()).toBeNull();
+    expect(store.liveStreamStatus()).toEqual({
+      lastAppliedSequence: baseSeq + 4,
+      bufferedCount: 0,
+      hasGap: false
+    });
+
+    // Snapshot bookings + drained seq 4 booking are present once; stale booking was removed
+    const dayBookings = store.selectedDateBookings();
+    expect(dayBookings.map((b) => b.id).sort()).toEqual([
+      'bk-e2e-missed-seq2',
+      'bk-e2e-seq3',
+      'bk-e2e-seq4'
+    ]);
+    expect(store.mergedBookingsById().has('bk-stale-day')).toBeFalse();
+    expect(dayBookings.filter((b) => b.id === 'bk-e2e-seq3').length).toBe(1);
   }));
 });
