@@ -1,0 +1,105 @@
+<section class="my-bookings" aria-label="My room bookings">
+  <header class="page-head">
+    <div>
+      <h1>My Bookings</h1>
+      <p>
+        Manage reservations for <strong>{{ store.currentUser().name }}</strong>. Cancelling a
+        booking opens a 10-second Undo window.
+      </p>
+    </div>
+
+    <div class="quota-pill" role="status">
+      <span>Today ({{ todayDateKey }}):</span>
+      <strong>{{ todayActiveCount() }} / {{ maxDailyBookings }} active</strong>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="tabs" role="tablist" aria-label="Filter bookings by status">
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        [class.tab--active]="activeFilter() === 'active'"
+        [attr.aria-selected]="activeFilter() === 'active'"
+        (click)="setFilter('active')">
+        Active
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        [class.tab--active]="activeFilter() === 'cancelled'"
+        [attr.aria-selected]="activeFilter() === 'cancelled'"
+        (click)="setFilter('cancelled')">
+        Cancelled
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        [class.tab--active]="activeFilter() === 'all'"
+        [attr.aria-selected]="activeFilter() === 'all'"
+        (click)="setFilter('all')">
+        All
+      </button>
+    </div>
+
+    <a routerLink="/timeline" class="btn-primary">+ Book a Room</a>
+  </div>
+
+  @if (store.loadingRooms()) {
+    <div class="empty-card" role="status">Loading your bookings...</div>
+  } @else if (filteredItems().length === 0) {
+    <div class="empty-card" role="status">
+      <h3>No {{ activeFilter() === 'all' ? '' : activeFilter() }} bookings found</h3>
+      <p>Use the Day Timeline to reserve an available meeting room.</p>
+    </div>
+  } @else {
+    <ul class="booking-list">
+      @for (item of filteredItems(); track item.booking.id) {
+        <li
+          class="booking-card"
+          [class.booking-card--cancelled]="item.booking.status === 'cancelled'">
+          <div class="booking-card__main">
+            <div class="booking-card__title-row">
+              <h3>{{ item.booking.title }}</h3>
+              @if (item.booking.optimistic) {
+                <app-status-badge label="Syncing..." tone="info" />
+              } @else if (item.booking.status === 'cancelled') {
+                <app-status-badge label="Cancelled" tone="neutral" />
+              } @else {
+                <app-status-badge label="Confirmed" tone="success" />
+              }
+              @if (item.booking.recurrenceGroupId) {
+                <app-status-badge label="Weekly Series" tone="info" />
+              }
+            </div>
+
+            <div class="booking-card__meta">
+              <span><strong>{{ item.roomName }}</strong> @if (item.floorLabel) { ({{ item.floorLabel }}) }</span>
+              <span>
+                {{ item.booking.startIso | cairoTime: 'date' }} ·
+                {{ item.booking.startIso | cairoTime: 'time' }} –
+                {{ item.booking.endIso | cairoTime: 'time' }} (Africa/Cairo)
+              </span>
+              <span>{{ item.booking.attendees }} attendees</span>
+            </div>
+          </div>
+
+          <div class="booking-card__actions">
+            @if (item.booking.status !== 'cancelled') {
+              <button
+                type="button"
+                class="btn-danger"
+                [disabled]="item.booking.optimistic"
+                (click)="onCancelBooking(item.booking.id)">
+                Cancel Booking
+              </button>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

@@ -1,13 +1,20 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
+import { BookingHubStore } from './data-access/store/booking-hub.store';
+import { AppShellComponent } from './shared/components/app-shell/app-shell.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [AppShellComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
-export class AppComponent {
-  title = 'bookingtask';
+export class AppComponent implements OnInit {
+  private readonly store = inject(BookingHubStore);
+  readonly title = 'Room Booking Hub';
+
+  ngOnInit(): void {
+    this.store.initialize();
+  }
 }
