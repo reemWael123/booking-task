@@ -1,0 +1,19 @@
+.timeline-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.page-head {
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+}

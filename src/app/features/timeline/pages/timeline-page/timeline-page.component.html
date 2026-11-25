@@ -1,0 +1,36 @@
+<div class="timeline-page">
+  <div class="page-head">
+    <h1>Day Timeline</h1>
+    <p>Select an available slot to reserve a room or filter across all 60 Cairo office rooms.</p>
+  </div>
+
+  <app-timeline-filters
+    [dateKey]="store.selectedDateKey()"
+    [todayDateKey]="todayDateKey"
+    [floors]="floors()"
+    [filterState]="filterState()"
+    [matchingRoomsCount]="filteredRooms().length"
+    [totalRoomsCount]="store.rooms().length"
+    [conflictRaceArmed]="conflictRaceArmed()"
+    [serverErrorArmed]="serverErrorArmed()"
+    (dateChanged)="onDateChanged($event)"
+    (filterChanged)="onFilterChanged($event)"
+    (newBookingClicked)="onNewBookingClicked()"
+    (toggleConflictRace)="onToggleConflictRace()"
+    (toggleServerError)="onToggleServerError()"
+    (simulateLiveBurst)="onSimulateLiveBurst()" />
+
+  <app-timeline-grid
+    [rooms]="filteredRooms()"
+    [dateKey]="store.selectedDateKey()"
+    [bookingsByRoom]="store.selectedDateBookingsByRoom()"
+    [currentUserId]="store.currentUser().id"
+    [loading]="store.loadingRooms() || store.loadingDate()"
+    (slotSelected)="onSlotSelected($event)" />
+
+  <app-booking-drawer
+    [open]="drawerOpen()"
+    [rooms]="store.rooms()"
+    [selection]="drawerSelection()"
+    (closed)="onDrawerClosed()" />
+</div>

@@ -1,0 +1,185 @@
+@if (open()) {
+  <div class="drawer-backdrop" (click)="closed.emit()">
+    <aside
+      class="drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="booking-drawer-title"
+      (click)="$event.stopPropagation()">
+      <header class="drawer__header">
+        <div>
+          <h2 id="booking-drawer-title" class="drawer__title">Reserve Meeting Room</h2>
+          <p class="drawer__subtitle">All times are in Africa/Cairo local time</p>
+        </div>
+        <button
+          type="button"
+          class="drawer__close"
+          aria-label="Close booking drawer"
+          (click)="closed.emit()">
+          ✕
+        </button>
+      </header>
+
+      <form class="drawer__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="field">
+          <label for="booking-title">Meeting Title</label>
+          <input
+            id="booking-title"
+            type="text"
+            formControlName="title"
+            placeholder="e.g. Sprint Planning"
+            autocomplete="off" />
+          @if (form.controls.title.touched && form.controls.title.invalid) {
+            <span class="field__error">Please enter a title (at least 2 characters).</span>
+          }
+        </div>
+
+        <div class="field">
+          <label for="booking-room">Room</label>
+          <select id="booking-room" formControlName="roomId">
+            @for (room of rooms(); track room.id) {
+              <option [value]="room.id">
+                {{ room.name }} (Floor {{ room.floor }} · Cap {{ room.capacity }})
+              </option>
+            }
+          </select>
+          @if (selectedRoom(); as room) {
+            <span class="field__hint">
+              Capacity: {{ room.capacity }} · Equipment: {{ room.equipment.join(', ') }}
+            </span>
+          }
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="booking-date">Date (Cairo)</label>
+            <input id="booking-date" type="date" formControlName="dateKey" />
+          </div>
+          <div class="field">
+            <label for="booking-attendees">Attendees</label>
+            <input id="booking-attendees" type="number" min="1" max="50" formControlName="attendees" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="booking-start">Start Time</label>
+            <select id="booking-start" formControlName="startTime">
+              @for (time of startTimeOptions; track time) {
+                <option [value]="time">{{ time }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label for="booking-end">End Time</label>
+            <select id="booking-end" formControlName="endTime">
+              @for (time of endTimeOptions; track time) {
+                <option [value]="time">{{ time }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="field equipment-group">
+          <legend>Required Equipment</legend>
+          <div class="chip-grid">
+            @for (item of equipmentOptions; track item.value) {
+              <label class="chip" [class.chip--active]="isEquipmentSelected(item.value)">
+                <input
+                  type="checkbox"
+                  [checked]="isEquipmentSelected(item.value)"
+                  (change)="toggleEquipment(item.value)" />
+                <span>{{ item.label }}</span>
+              </label>
+            }
+          </div>
+        </fieldset>
+
+        <div class="recurring-box">
+          <label class="toggle">
+            <input type="checkbox" formControlName="recurring" />
+            <span>Repeat weekly (all-or-nothing, up to 4 weeks)</span>
+          </label>
+
+          @if (form.controls.recurring.value) {
+            <div class="field">
+              <label for="booking-weeks">Occurrences</label>
+              <select id="booking-weeks" formControlName="weeks">
+                <option [ngValue]="2">2 weeks</option>
+                <option [ngValue]="3">3 weeks</option>
+                <option [ngValue]="4">4 weeks</option>
+              </select>
+            </div>
+
+            @if (recurringValidation(); as recVal) {
+              <ul class="occurrence-list">
+                @for (occ of recVal.occurrences; track occ.weekIndex) {
+                  <li class="occurrence-item">
+                    <span>Week {{ occ.weekIndex + 1 }} · {{ occ.dateKey }}</span>
+                    <app-status-badge
+                      [label]="occ.result.valid ? 'Available' : 'Conflict / Invalid'"
+                      [tone]="occ.result.valid ? 'success' : 'danger'" />
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </div>
+
+        @if (validationErrors().length > 0) {
+          <div class="validation-panel" role="alert">
+            <div class="validation-panel__title">Validation Issues</div>
+            <ul>
+              @for (err of validationErrors(); track err.code + err.message) {
+                <li>{{ err.message }}</li>
+              }
+            </ul>
+          </div>
+        } @else if (candidateRequest()) {
+          <div class="valid-banner" role="status">
+            Slot satisfies working hours, 15-minute buffer, room requirements, and daily cap.
+          </div>
+        }
+
+        @if (suggestedSlots().length > 0) {
+          <section class="suggestions">
+            <h3 class="suggestions__title">Alternative Suggested Slots</h3>
+            <ul class="suggestions__list">
+              @for (item of suggestedSlots(); track item.slot.roomId + item.slot.startIso) {
+                <li class="suggestion-item">
+                  <div class="suggestion-item__info">
+                    <strong>{{ item.slot.roomName }}</strong>
+                    <span>{{ item.slot.dateKey }} · {{ item.slot.startLocal }} – {{ item.slot.endLocal }}</span>
+                    @if (!item.allowed && item.validation.errors.length > 0) {
+                      <span class="suggestion-item__blocked">{{ item.validation.errors[0].message }}</span>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-link"
+                    [disabled]="!item.allowed"
+                    (click)="applySuggestion(item.slot)">
+                    {{ item.allowed ? 'Use Slot' : 'Limit Reached' }}
+                  </button>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
+        <footer class="drawer__footer">
+          <button type="button" class="btn-secondary" (click)="closed.emit()">Cancel</button>
+          <button type="submit" class="btn-primary" [disabled]="!canSubmit()">
+            @if (store.submitting()) {
+              Booking...
+            } @else if (form.controls.recurring.value) {
+              Book {{ form.controls.weeks.value }} Weeks
+            } @else {
+              Confirm Booking
+            }
+          </button>
+        </footer>
+      </form>
+    </aside>
+  </div>
+}

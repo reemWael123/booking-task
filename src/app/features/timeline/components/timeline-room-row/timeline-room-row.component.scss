@@ -1,0 +1,150 @@
+.room-row {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  border-bottom: 1px solid var(--color-border);
+  min-height: 62px;
+  background: var(--color-surface);
+
+  &:hover {
+    background: #fcfdff;
+  }
+}
+
+.room-info {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: inherit;
+  padding: 8px 12px;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__floor {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-subtle);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    overflow: hidden;
+  }
+
+  &__eq {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.room-track {
+  position: relative;
+}
+
+.slot-grid {
+  display: grid;
+  height: 100%;
+  min-height: 62px;
+}
+
+.slot-cell {
+  border: none;
+  border-right: 1px solid #f1f5f9;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+
+  &__plus {
+    opacity: 0;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  &:hover {
+    background: var(--color-primary-soft);
+
+    .slot-cell__plus {
+      opacity: 1;
+    }
+  }
+}
+
+.bookings-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.booking-block {
+  pointer-events: auto;
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: #e2e8f0;
+  border-left: 3px solid #475569;
+  color: var(--color-text);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+
+  &--own {
+    background: #dbeafe;
+    border-left-color: var(--color-primary);
+    color: #1e3a8a;
+  }
+
+  &--optimistic {
+    border-style: dashed;
+    border-width: 1px 1px 1px 3px;
+    opacity: 0.78;
+  }
+
+  &__title {
+    font-size: 12px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__sub {
+    font-size: 10px;
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

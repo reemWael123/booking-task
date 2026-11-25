@@ -1,0 +1,99 @@
+<section class="filters-card" aria-label="Timeline controls and room filters">
+  <div class="filters-top">
+    <div class="date-controls">
+      <button type="button" class="btn-icon" aria-label="Previous day" (click)="stepDay(-1)">‹</button>
+      <input
+        type="date"
+        class="date-input"
+        aria-label="Select Cairo date"
+        [value]="dateKey()"
+        (change)="onDateInput($event)" />
+      <button type="button" class="btn-icon" aria-label="Next day" (click)="stepDay(1)">›</button>
+      <button type="button" class="btn-subtle" (click)="dateChanged.emit(todayDateKey())">Today</button>
+      <app-status-badge [label]="workingHoursLabel().text" [tone]="workingHoursLabel().tone" />
+    </div>
+
+    <div class="top-actions">
+      <span class="room-count">
+        Showing <strong>{{ matchingRoomsCount() }}</strong> of {{ totalRoomsCount() }} rooms
+      </span>
+      <button type="button" class="btn-primary" (click)="newBookingClicked.emit()">
+        + New Booking
+      </button>
+    </div>
+  </div>
+
+  <div class="filters-row">
+    <input
+      type="search"
+      class="control"
+      placeholder="Search room name..."
+      aria-label="Search rooms"
+      [value]="filterState().searchQuery"
+      (input)="onSearchInput($event)" />
+
+    <select
+      class="control"
+      aria-label="Filter by floor"
+      [value]="filterState().floor ?? ''"
+      (change)="onFloorChange($event)">
+      <option value="">All Floors</option>
+      @for (floor of floors(); track floor) {
+        <option [value]="floor">Floor {{ floor }}</option>
+      }
+    </select>
+
+    <select
+      class="control"
+      aria-label="Filter by minimum capacity"
+      [value]="filterState().minCapacity"
+      (change)="onCapacityChange($event)">
+      <option [value]="1">Any Capacity</option>
+      <option [value]="4">4+ people</option>
+      <option [value]="8">8+ people</option>
+      <option [value]="12">12+ people</option>
+      <option [value]="16">16+ people</option>
+      <option [value]="20">20+ people</option>
+    </select>
+
+    <div class="equipment-bar" role="group" aria-label="Filter by equipment">
+      @for (eq of equipmentOptions; track eq.value) {
+        <button
+          type="button"
+          class="eq-chip"
+          [class.eq-chip--active]="filterState().equipment.includes(eq.value)"
+          [attr.aria-pressed]="filterState().equipment.includes(eq.value)"
+          (click)="toggleEquipment(eq.value)">
+          {{ eq.label }}
+        </button>
+      }
+    </div>
+
+    @if (hasActiveFilters()) {
+      <button type="button" class="btn-clear" (click)="resetFilters()">Reset</button>
+    }
+  </div>
+
+  <div class="sim-bar" aria-label="Mock API simulation controls">
+    <span class="sim-bar__label">Mock API Lab:</span>
+    <button
+      type="button"
+      class="sim-btn"
+      [class.sim-btn--armed]="conflictRaceArmed()"
+      [attr.aria-pressed]="conflictRaceArmed()"
+      (click)="toggleConflictRace.emit()">
+      {{ conflictRaceArmed() ? '409 Race Armed' : 'Simulate Next 409 Race' }}
+    </button>
+    <button
+      type="button"
+      class="sim-btn"
+      [class.sim-btn--armed]="serverErrorArmed()"
+      [attr.aria-pressed]="serverErrorArmed()"
+      (click)="toggleServerError.emit()">
+      {{ serverErrorArmed() ? '500 Error Armed' : 'Simulate Next 500 Error' }}
+    </button>
+    <button type="button" class="sim-btn" (click)="simulateLiveBurst.emit()">
+      Emit Out-of-Order Live Burst
+    </button>
+  </div>
+</section>

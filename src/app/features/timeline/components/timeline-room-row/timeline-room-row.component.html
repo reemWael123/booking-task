@@ -1,0 +1,43 @@
+<div class="room-row" role="row">
+  <div class="room-info" role="rowheader">
+    <div class="room-info__top">
+      <strong class="room-info__name">{{ room().name }}</strong>
+      <span class="room-info__floor">F{{ room().floor }}</span>
+    </div>
+    <div class="room-info__meta">
+      <span>Cap {{ room().capacity }}</span>
+      <span class="room-info__eq">{{ room().equipment.join(' · ') }}</span>
+    </div>
+  </div>
+
+  <div class="room-track" role="gridcell">
+    <div class="slot-grid" [style.grid-template-columns]="'repeat(' + hourColumns().length + ', minmax(88px, 1fr))'">
+      @for (col of hourColumns(); track col.startMin) {
+        <button
+          type="button"
+          class="slot-cell"
+          [attr.aria-label]="'Book ' + room().name + ' at ' + col.label"
+          (click)="onSlotClick(col)">
+          <span class="slot-cell__plus" aria-hidden="true">+</span>
+        </button>
+      }
+    </div>
+
+    <div class="bookings-layer">
+      @for (block of bookingBlocks(); track block.id) {
+        <div
+          class="booking-block"
+          [class.booking-block--own]="block.isOwn"
+          [class.booking-block--optimistic]="block.optimistic"
+          [style.left.%]="block.leftPercent"
+          [style.width.%]="block.widthPercent"
+          [title]="block.title + ' · ' + block.userName + ' (' + block.timeRange + ')'">
+          <span class="booking-block__title">{{ block.title }}</span>
+          <span class="booking-block__sub">
+            {{ block.timeRange }} · {{ block.optimistic ? 'Saving...' : block.userName }}
+          </span>
+        </div>
+      }
+    </div>
+  </div>
+</div>

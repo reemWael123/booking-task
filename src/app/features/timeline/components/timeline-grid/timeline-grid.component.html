@@ -1,0 +1,53 @@
+<section class="grid-card" aria-label="Room availability timeline">
+  @if (loading()) {
+    <div class="state-box" role="status" aria-busy="true">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Loading Cairo office schedule for {{ dateKey() }}...</p>
+    </div>
+  } @else if (!workingHours()) {
+    <div class="state-box state-box--closed" role="status">
+      <h3>Office Closed on Saturday</h3>
+      <p>
+        {{ dateKey() }} falls on a Saturday. Cairo office hours are Sunday–Thursday (08:00–18:00)
+        and Friday (08:00–13:00).
+      </p>
+    </div>
+  } @else if (rooms().length === 0) {
+    <div class="state-box" role="status">
+      <h3>No rooms match your filters</h3>
+      <p>Try clearing floor, capacity, or equipment filters to see available meeting rooms.</p>
+    </div>
+  } @else {
+    <div class="legend">
+      <span class="legend__item"><span class="swatch swatch--avail"></span>Click empty slot to book</span>
+      <span class="legend__item"><span class="swatch swatch--own"></span>Your booking</span>
+      <span class="legend__item"><span class="swatch swatch--other"></span>Reserved by colleague</span>
+      <span class="legend__item"><span class="swatch swatch--opt"></span>Saving (optimistic)</span>
+    </div>
+
+    <div class="grid-scroll" role="grid" [attr.aria-label]="'Rooms timeline for ' + dateKey()">
+      <div class="grid-header" role="row">
+        <div class="grid-header__room" role="columnheader">Room</div>
+        <div
+          class="grid-header__hours"
+          [style.grid-template-columns]="'repeat(' + hourColumns().length + ', minmax(88px, 1fr))'">
+          @for (col of hourColumns(); track col.startMin) {
+            <div class="hour-label" role="columnheader">{{ col.label }}</div>
+          }
+        </div>
+      </div>
+
+      @for (room of rooms(); track room.id) {
+        <app-timeline-room-row
+          [room]="room"
+          [dateKey]="dateKey()"
+          [bookings]="bookingsByRoom().get(room.id) ?? emptyBookings"
+          [currentUserId]="currentUserId()"
+          [openMinute]="workingHours()!.openMinute"
+          [closeMinute]="workingHours()!.closeMinute"
+          [hourColumns]="hourColumns()"
+          (slotSelected)="slotSelected.emit($event)" />
+      }
+    </div>
+  }
+</section>
