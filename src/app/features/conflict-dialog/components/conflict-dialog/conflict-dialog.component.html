@@ -1,0 +1,80 @@
+@if (conflict(); as active) {
+  <div class="dialog-backdrop" (click)="closeDialog.emit()">
+    <section
+      class="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="conflict-dialog-title"
+      (click)="$event.stopPropagation()">
+      <header class="dialog__header">
+        <div>
+          <app-status-badge label="409 Conflict" tone="danger" />
+          <h2 id="conflict-dialog-title" class="dialog__title">Room Slot Already Reserved</h2>
+        </div>
+        <button
+          type="button"
+          class="dialog__close"
+          aria-label="Close conflict dialog"
+          (click)="closeDialog.emit()">
+          ✕
+        </button>
+      </header>
+
+      <div class="dialog__body">
+        <p class="dialog__summary">{{ active.message }}</p>
+
+        <div class="conflict-card">
+          <div class="conflict-card__label">Conflicting Reservation</div>
+          <div class="conflict-card__main">
+            <strong>{{ active.conflictingBooking.title }}</strong>
+            <span>Booked by {{ active.conflictingBooking.userName }}</span>
+          </div>
+          <div class="conflict-card__time">
+            {{ active.conflictingBooking.startIso | cairoTime: 'date' }} ·
+            {{ active.conflictingBooking.startIso | cairoTime: 'time' }} –
+            {{ active.conflictingBooking.endIso | cairoTime: 'time' }} (Africa/Cairo)
+          </div>
+        </div>
+
+        <div class="alternatives">
+          <h3 class="alternatives__heading">Next 3 Available Alternatives</h3>
+
+          @if (active.alternatives.length === 0) {
+            <p class="alternatives__empty">
+              No matching alternative rooms or times were found within the next 14 days.
+            </p>
+          } @else {
+            <ul class="alternatives__list">
+              @for (item of active.alternatives; track item.slot.roomId + item.slot.startIso) {
+                <li class="alt-item" [class.alt-item--blocked]="!item.allowed">
+                  <div class="alt-item__info">
+                    <strong>{{ item.slot.roomName }}</strong>
+                    <span>
+                      {{ item.slot.dateKey }} · {{ item.slot.startLocal }} – {{ item.slot.endLocal }}
+                    </span>
+                    @if (!item.allowed && item.validation.errors.length > 0) {
+                      <span class="alt-item__reason">{{ item.validation.errors[0].message }}</span>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="alt-item__btn"
+                    [disabled]="!item.allowed || submitting()"
+                    (click)="selectAlternative.emit(item.slot)">
+                    {{ item.allowed ? 'Book Slot' : 'Unavailable' }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+
+      <footer class="dialog__footer">
+        <button type="button" class="btn-secondary" (click)="closeDialog.emit()">
+          Close
+        </button>
+      </footer>
+    </section>
+  </div>
+}

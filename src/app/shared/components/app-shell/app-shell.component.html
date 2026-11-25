@@ -1,0 +1,91 @@
+<div class="shell">
+  <aside class="sidebar" [class.sidebar--open]="sidebarOpen()" aria-label="Main navigation">
+    <div class="sidebar__brand">
+      <div class="brand-mark" aria-hidden="true">RB</div>
+      <div>
+        <div class="brand-title">Room Booking Hub</div>
+        <div class="brand-sub">Cairo Office · Africa/Cairo</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a
+        routerLink="/timeline"
+        routerLinkActive="nav__link--active"
+        class="nav__link"
+        (click)="closeSidebar()">
+        <span>Day Timeline</span>
+        <span class="nav__meta">{{ store.rooms().length }} rooms</span>
+      </a>
+      <a
+        routerLink="/my-bookings"
+        routerLinkActive="nav__link--active"
+        class="nav__link"
+        (click)="closeSidebar()">
+        <span>My Bookings</span>
+        <span class="nav__meta">{{ store.currentUserBookings().length }}</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__footer">
+      <div class="user-card">
+        <div class="user-card__name">{{ store.currentUser().name }}</div>
+        <div class="user-card__dept">{{ store.currentUser().department }}</div>
+      </div>
+    </div>
+  </aside>
+
+  @if (sidebarOpen()) {
+    <div class="sidebar-backdrop" (click)="closeSidebar()"></div>
+  }
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar__left">
+        <button
+          type="button"
+          class="menu-btn"
+          aria-label="Toggle navigation"
+          (click)="toggleSidebar()">
+          ☰
+        </button>
+        <div class="topbar__tz">
+          <span class="tz-dot" aria-hidden="true"></span>
+          <span>Timezone: <strong>Africa/Cairo</strong></span>
+        </div>
+      </div>
+
+      <div class="topbar__right">
+        @if (store.liveStreamStatus().hasGap) {
+          <app-status-badge
+            [label]="'Sync gap (' + store.liveStreamStatus().bufferedCount + ' buffered)'"
+            tone="warning" />
+          <button type="button" class="resync-btn" (click)="onManualResync()">
+            Resync
+          </button>
+        } @else {
+          <app-status-badge
+            [label]="'Live · Seq #' + store.liveStreamStatus().lastAppliedSequence"
+            tone="success" />
+        }
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+
+  <app-undo-banner
+    [undoAction]="store.undoAction()"
+    [errorMessage]="store.errorMessage()"
+    (undoRequested)="onUndoRequested()"
+    (dismissUndo)="store.dismissUndo()"
+    (dismissError)="store.clearError()" />
+
+  <app-conflict-dialog
+    [conflict]="store.activeConflict()"
+    [submitting]="store.submitting()"
+    (selectAlternative)="onSelectConflictAlternative($event)"
+    (closeDialog)="store.dismissConflict()" />
+</div>

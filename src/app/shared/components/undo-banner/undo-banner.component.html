@@ -1,0 +1,43 @@
+<div class="toast-stack" aria-live="polite" aria-atomic="true">
+  @if (errorMessage(); as error) {
+    <div class="toast toast--error" role="alert">
+      <div class="toast__content">
+        <strong class="toast__title">Action failed</strong>
+        <span class="toast__text">{{ error }}</span>
+      </div>
+      <button
+        type="button"
+        class="toast__dismiss"
+        aria-label="Dismiss error"
+        (click)="dismissError.emit()">
+        Dismiss
+      </button>
+    </div>
+  }
+
+  @if (undoAction(); as action) {
+    <div class="toast toast--undo" role="status">
+      <div class="toast__content">
+        <strong class="toast__title">Booking cancelled</strong>
+        <span class="toast__text">
+          "{{ action.bookingTitle }}" cancelled. Undo available for {{ remainingSeconds() }}s.
+        </span>
+      </div>
+      <div class="toast__actions">
+        <button
+          type="button"
+          class="toast__undo-btn"
+          (click)="undoRequested.emit()">
+          Undo ({{ remainingSeconds() }}s)
+        </button>
+        <button
+          type="button"
+          class="toast__dismiss"
+          aria-label="Dismiss undo notification"
+          (click)="dismissUndo.emit()">
+          Close
+        </button>
+      </div>
+    </div>
+  }
+</div>
