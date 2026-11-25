@@ -5,6 +5,7 @@ import { ClockService } from '../../../../core/services/clock.service';
 import { BookingHubStore } from '../../../../data-access/store/booking-hub.store';
 import { getCairoParts, MAX_DAILY_BOOKINGS_PER_USER, parseIsoTimestamp } from '../../../../domain';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
+import { PaginationComponent } from '../../../../shared/components/pagination/pagination.component';
 import { CairoTimePipe } from '../../../../shared/pipes/cairo-time.pipe';
 
 export type MyBookingsFilter = 'active' | 'cancelled' | 'all';
@@ -19,7 +20,7 @@ interface BookingListItem {
   selector: 'app-my-bookings-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, StatusBadgeComponent, CairoTimePipe],
+  imports: [RouterLink, StatusBadgeComponent, PaginationComponent, CairoTimePipe],
   templateUrl: './my-bookings-page.component.html',
   styleUrl: './my-bookings-page.component.scss'
 })
@@ -28,7 +29,9 @@ export class MyBookingsPageComponent {
   private readonly clock = inject(ClockService);
 
   readonly maxDailyBookings = MAX_DAILY_BOOKINGS_PER_USER;
+  readonly pageSize = 10;
   readonly activeFilter = signal<MyBookingsFilter>('active');
+  readonly currentPage = signal<number>(1);
 
   readonly todayDateKey = getCairoParts(this.clock.now()).dateKey;
 
@@ -68,8 +71,25 @@ export class MyBookingsPageComponent {
     return items;
   });
 
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredItems().length / this.pageSize))
+  );
+
+  readonly effectivePage = computed(() => Math.min(this.currentPage(), this.totalPages()));
+
+  readonly paginatedItems = computed<readonly BookingListItem[]>(() => {
+    const start = (this.effectivePage() - 1) * this.pageSize;
+    return this.filteredItems().slice(start, start + this.pageSize);
+  });
+
   setFilter(filter: MyBookingsFilter): void {
     this.activeFilter.set(filter);
+    this.currentPage.set(1);
+  }
+
+  onPageChanged(page: number): void {
+    const clamped = Math.min(Math.max(1, page), this.totalPages());
+    this.currentPage.set(clamped);
   }
 
   onCancelBooking(bookingId: string): void {

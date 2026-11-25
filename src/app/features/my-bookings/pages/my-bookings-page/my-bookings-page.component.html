@@ -57,7 +57,7 @@
     </div>
   } @else {
     <ul class="booking-list">
-      @for (item of filteredItems(); track item.booking.id) {
+      @for (item of paginatedItems(); track item.booking.id) {
         <li
           class="booking-card"
           [class.booking-card--cancelled]="item.booking.status === 'cancelled'">
@@ -101,5 +101,14 @@
         </li>
       }
     </ul>
+  }
+
+  @if (!store.loadingRooms()) {
+    <app-pagination
+      [currentPage]="effectivePage()"
+      [pageSize]="pageSize"
+      [totalItems]="filteredItems().length"
+      itemLabel="bookings"
+      (pageChange)="onPageChanged($event)" />
   }
 </section>

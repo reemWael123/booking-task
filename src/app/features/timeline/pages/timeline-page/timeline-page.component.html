@@ -21,12 +21,21 @@
     (simulateLiveBurst)="onSimulateLiveBurst()" />
 
   <app-timeline-grid
-    [rooms]="filteredRooms()"
+    [rooms]="paginatedRooms()"
     [dateKey]="store.selectedDateKey()"
     [bookingsByRoom]="store.selectedDateBookingsByRoom()"
     [currentUserId]="store.currentUser().id"
     [loading]="store.loadingRooms() || store.loadingDate()"
     (slotSelected)="onSlotSelected($event)" />
+
+  @if (!store.loadingRooms()) {
+    <app-pagination
+      [currentPage]="effectivePage()"
+      [pageSize]="pageSize"
+      [totalItems]="filteredRooms().length"
+      itemLabel="rooms"
+      (pageChange)="onPageChanged($event)" />
+  }
 
   <app-booking-drawer
     [open]="drawerOpen()"

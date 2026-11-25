@@ -81,4 +81,41 @@ describe('TimelinePageComponent', () => {
       'Reserve Meeting Room'
     );
   });
+
+  it('paginates rooms at 10 per page, navigates pages, and resets to page 1 when filters change', () => {
+    const fixture = TestBed.createComponent(TimelinePageComponent);
+    fixture.detectChanges();
+    const comp = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+
+    // 14 seeded rooms -> page 1 renders 10 rooms
+    expect(comp.paginatedRooms().length).toBe(10);
+    expect(el.querySelectorAll('app-timeline-room-row').length).toBe(10);
+    expect(el.textContent).toContain('Showing 1–10 of 14 rooms');
+
+    // Navigate to page 2 via Next button -> renders remaining 4 rooms
+    const nextBtn = el.querySelectorAll('.page-btn--nav')[1] as HTMLButtonElement;
+    nextBtn.click();
+    fixture.detectChanges();
+
+    expect(comp.effectivePage()).toBe(2);
+    expect(comp.paginatedRooms().length).toBe(4);
+    expect(el.querySelectorAll('app-timeline-room-row').length).toBe(4);
+    expect(el.textContent).toContain('Showing 11–14 of 14 rooms');
+    expect(nextBtn.disabled).toBeTrue();
+
+    // Changing a filter resets back to page 1
+    comp.onFilterChanged({ floor: 1, minCapacity: 1, equipment: [], searchQuery: '' });
+    fixture.detectChanges();
+    expect(comp.effectivePage()).toBe(1);
+    expect(comp.filteredRooms().length).toBe(12);
+    expect(comp.paginatedRooms().length).toBe(10);
+    expect(el.textContent).toContain('Showing 1–10 of 12 rooms');
+
+    // Empty search result shows 0 of 0 rooms cleanly
+    comp.onFilterChanged({ floor: null, minCapacity: 1, equipment: [], searchQuery: 'NoSuchRoom' });
+    fixture.detectChanges();
+    expect(comp.effectivePage()).toBe(1);
+    expect(el.textContent).toContain('Showing 0 of 0 rooms');
+  });
 });

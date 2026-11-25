@@ -12,12 +12,13 @@ import {
   TimelineFilterState
 } from '../../components/timeline-filters/timeline-filters.component';
 import { TimelineGridComponent } from '../../components/timeline-grid/timeline-grid.component';
+import { PaginationComponent } from '../../../../shared/components/pagination/pagination.component';
 
 @Component({
   selector: 'app-timeline-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TimelineFiltersComponent, TimelineGridComponent, BookingDrawerComponent],
+  imports: [TimelineFiltersComponent, TimelineGridComponent, BookingDrawerComponent, PaginationComponent],
   templateUrl: './timeline-page.component.html',
   styleUrl: './timeline-page.component.scss'
 })
@@ -27,6 +28,8 @@ export class TimelinePageComponent {
   private readonly mockApi = inject(MockBookingApiService);
 
   readonly todayDateKey = getCairoParts(this.clock.now()).dateKey;
+  readonly pageSize = 10;
+  readonly currentPage = signal<number>(1);
 
   readonly filterState = signal<TimelineFilterState>({
     floor: null,
@@ -69,12 +72,29 @@ export class TimelinePageComponent {
     });
   });
 
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredRooms().length / this.pageSize))
+  );
+
+  readonly effectivePage = computed(() => Math.min(this.currentPage(), this.totalPages()));
+
+  readonly paginatedRooms = computed(() => {
+    const start = (this.effectivePage() - 1) * this.pageSize;
+    return this.filteredRooms().slice(start, start + this.pageSize);
+  });
+
   onDateChanged(dateKey: string): void {
     this.store.selectDate(dateKey);
   }
 
   onFilterChanged(next: TimelineFilterState): void {
     this.filterState.set(next);
+    this.currentPage.set(1);
+  }
+
+  onPageChanged(page: number): void {
+    const clamped = Math.min(Math.max(1, page), this.totalPages());
+    this.currentPage.set(clamped);
   }
 
   onSlotSelected(selection: DrawerSlotSelection): void {
@@ -83,7 +103,7 @@ export class TimelinePageComponent {
   }
 
   onNewBookingClicked(): void {
-    const firstRoom = this.filteredRooms()[0] ?? this.store.rooms()[0];
+    const firstRoom = this.paginatedRooms()[0] ?? this.filteredRooms()[0] ?? this.store.rooms()[0];
     if (!firstRoom) {
       return;
     }

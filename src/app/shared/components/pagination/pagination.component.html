@@ -1,0 +1,41 @@
+<nav class="pagination" [attr.aria-label]="'Pagination for ' + itemLabel()">
+  <div class="pagination__summary" role="status" aria-live="polite">
+    {{ rangeText() }}
+  </div>
+
+  <div class="pagination__controls">
+    <button
+      type="button"
+      class="page-btn page-btn--nav"
+      [disabled]="!canGoPrevious()"
+      (click)="previous()">
+      Previous
+    </button>
+
+    <div class="pagination__numbers">
+      @for (token of pageTokens(); track token.key) {
+        @if (token.kind === 'ellipsis') {
+          <span class="page-ellipsis" aria-hidden="true">…</span>
+        } @else {
+          <button
+            type="button"
+            class="page-btn"
+            [class.page-btn--active]="token.page === safePage()"
+            [attr.aria-current]="token.page === safePage() ? 'page' : null"
+            [attr.aria-label]="'Page ' + token.page"
+            (click)="goToPage(token.page)">
+            {{ token.page }}
+          </button>
+        }
+      }
+    </div>
+
+    <button
+      type="button"
+      class="page-btn page-btn--nav"
+      [disabled]="!canGoNext()"
+      (click)="next()">
+      Next
+    </button>
+  </div>
+</nav>
