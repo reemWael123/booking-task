@@ -228,9 +228,9 @@ describe('Domain Booking Rules', () => {
       expect(res.errors.map((e) => e.code)).toContain('CROSSES_CLOSING_TIME');
     });
 
-    it('rejects bookings crossing Cairo midnight (even when input is in UTC)', () => {
-      // 21:30Z to 22:30Z in winter Cairo = 23:30 to 00:30 next day
-      const res = validateBooking(
+    it('rejects bookings crossing Cairo midnight (in both winter UTC and summer DST)', () => {
+      // Winter: 21:30Z to 22:30Z = 23:30 to 00:30+02:00 next day
+      const winterCross = validateBooking(
         makeRequest({
           startIso: '2026-11-25T21:30:00Z',
           endIso: '2026-11-25T22:30:00Z'
@@ -240,8 +240,22 @@ describe('Domain Booking Rules', () => {
         [],
         WINTER_NOW
       );
-      expect(res.valid).toBeFalse();
-      expect(res.errors.map((e) => e.code)).toContain('CROSSES_MIDNIGHT');
+      expect(winterCross.valid).toBeFalse();
+      expect(winterCross.errors.map((e) => e.code)).toContain('CROSSES_MIDNIGHT');
+
+      // Summer DST (+03:00): 20:30Z to 21:30Z = 23:30 to 00:30+03:00 next day
+      const summerCross = validateBooking(
+        makeRequest({
+          startIso: '2026-07-01T20:30:00Z',
+          endIso: '2026-07-01T21:30:00Z'
+        }),
+        ROOM_A,
+        [],
+        [],
+        SUMMER_NOW
+      );
+      expect(summerCross.valid).toBeFalse();
+      expect(summerCross.errors.map((e) => e.code)).toContain('CROSSES_MIDNIGHT');
     });
 
     it('enforces Friday half-day working hours (08:00–13:00)', () => {
@@ -549,6 +563,24 @@ describe('Domain Booking Rules', () => {
       expect(res.occurrences[2].endIso).toBe('2026-04-30T11:00:00+03:00');
     });
 
+    it('preserves Cairo local wall-clock time across DST fall-back transitions', () => {
+      // Thu 2026-10-22 (+03:00) -> Thu 2026-10-29 (+03:00) -> Thu 2026-11-05 (+02:00 after Oct 29 fall-back)
+      const now = new Date('2026-10-20T06:00:00Z');
+      const req: RecurringBookingRequest = {
+        ...makeRequest({
+          startIso: '2026-10-22T10:00:00+03:00',
+          endIso: '2026-10-22T11:00:00+03:00'
+        }),
+        weeks: 3
+      };
+      const res = validateRecurringBooking(req, ROOM_A, [], [], now);
+      expect(res.valid).toBeTrue();
+      expect(res.occurrences[0].startIso).toBe('2026-10-22T10:00:00+03:00');
+      expect(res.occurrences[1].startIso).toBe('2026-10-29T10:00:00+03:00');
+      expect(res.occurrences[2].startIso).toBe('2026-11-05T10:00:00+02:00');
+      expect(res.occurrences[2].endIso).toBe('2026-11-05T11:00:00+02:00');
+    });
+
     it('rejects recurrence counts outside 1–4 weeks', () => {
       expect(
         validateRecurringBooking({ ...makeRequest(), weeks: 0 }, ROOM_A, [], [], WINTER_NOW).valid
@@ -610,6 +642,22 @@ describe('Domain Booking Rules', () => {
       expect(slots[0].dateKey).toBe('2026-11-29');
       expect(slots[0].startLocal).toBe('08:00');
       expect(slots[0].endLocal).toBe('09:00');
+    });
+
+    it('treats slots held only by cancelled bookings as available for suggestions', () => {
+      const cancelled = makeBooking({
+        id: 'b-cancelled',
+        roomId: ROOM_A.id,
+        startIso: '2026-11-25T09:00:00+02:00',
+        endIso: '2026-11-25T10:00:00+02:00',
+        status: 'cancelled'
+      });
+
+      const slots = suggestSlots(makeRequest(), [ROOM_A], [cancelled], WINTER_NOW, 1);
+      expect(slots.length).toBe(1);
+      expect(slots[0].roomId).toBe(ROOM_A.id);
+      expect(slots[0].startLocal).toBe('09:00');
+      expect(slots[0].endLocal).toBe('10:00');
     });
   });
 });
